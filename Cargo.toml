@@ -1,6 +1,6 @@
 [package]
 name = "cratesiover"
-version = "2.0.0"
+version = "2.1.0"
 authors = ["kurt <kurtlawrence92@gmail.com>"]
 description = "Get crate version from crates.io"
 license = "MIT"
@@ -18,3 +18,5 @@ travis-ci = { repository = "kurtlawrence/cratesiover" }
 [dependencies]
 reqwest = "0.9"
 semver = "0.9"
+linefeed = "0.5"
+colored = "1.6"

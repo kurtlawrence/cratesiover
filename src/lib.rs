@@ -21,9 +21,12 @@
 //! ```
 #![warn(missing_docs)]
 
+use colored::*;
+use linefeed::Terminal;
 use reqwest;
 use semver::Version;
 use std::cmp::Ordering;
+use std::io::{self, Write};
 
 /// The comparitive status of the version query.
 /// Each variant contains the `crates.io` version number.
@@ -48,6 +51,29 @@ pub enum Error {
 	RequestError(reqwest::Error),
 }
 
+struct Writer<'a, T: Terminal>(&'a T);
+
+impl<'a, T: Terminal> Writer<'a, T> {
+	pub fn overwrite_current_console_line(&self, line: &str) -> io::Result<()> {
+		let mut wtr = self.0.lock_write();
+		wtr.move_to_first_column()?;
+		wtr.clear_to_screen_end()?;
+		wtr.write(line)
+	}
+}
+
+impl<'a, T: Terminal> Write for Writer<'a, T> {
+	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+		let mut wtr = self.0.lock_write();
+		wtr.write(&String::from_utf8_lossy(buf)).unwrap();
+		Ok(buf.len())
+	}
+
+	fn flush(&mut self) -> io::Result<()> {
+		Ok(())
+	}
+}
+
 /// Get the `crates.io` version of the specified crate.
 pub fn get(crate_name: &str) -> Result<Version, Error> {
 	Version::parse(parse(&web_req(crate_name)?)?).map_err(|e| Error::SemVerError(e))
@@ -68,6 +94,50 @@ pub fn get(crate_name: &str) -> Result<Version, Error> {
 pub fn query(crate_name: &str, version: &str) -> Result<Status, Error> {
 	let version = Version::parse(version).map_err(|e| Error::SemVerError(e))?;
 	Ok(cmp(&version, get(crate_name)?))
+}
+
+/// Query and compare the crate version number. Write to stdout the status.
+pub fn output(crate_name: &str, version: &str) -> io::Result<()> {
+	Ok(output_with_term(
+		crate_name,
+		version,
+		&linefeed::DefaultTerminal::new()?,
+	))
+}
+
+/// Query and compare the crate version number. Write to the given terminal the status.
+pub fn output_with_term<Term: Terminal>(crate_name: &str, version: &str, terminal: &Term) {
+	print!("{}", "Checking for later version...".bright_yellow());
+	io::stdout().flush().is_ok();
+	let print_line = match query(crate_name, version) {
+		Ok(status) => match status {
+			Status::Equal(ver) => format!(
+				"{}{}",
+				"Running the latest papyrus version ".bright_green(),
+				ver.to_string().bright_green()
+			),
+			Status::Behind(ver) => format!(
+				"{}",
+				format!(
+					"The current papyrus version {} is old, please update to {}",
+					version, ver
+				)
+				.bright_red()
+			),
+			Status::Ahead(ver) => format!(
+				"{}",
+				format!(
+					"The current papyrus version {} is ahead of the crates.io version {}",
+					version, ver
+				)
+				.bright_purple()
+			),
+		},
+		Err(_) => format!("{}", "Failed to query crates.io".bright_yellow()),
+	};
+	let mut wtr = Writer(terminal);
+	wtr.overwrite_current_console_line(&print_line).unwrap();
+	writeln!(wtr, "",).unwrap();
 }
 
 fn parse(text: &str) -> Result<&str, Error> {
