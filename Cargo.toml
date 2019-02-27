@@ -1,6 +1,6 @@
 [package]
 name = "cratesiover"
-version = "1.0.0"
+version = "2.0.0"
 authors = ["kurt <kurtlawrence92@gmail.com>"]
 description = "Get crate version from crates.io"
 license = "MIT"
