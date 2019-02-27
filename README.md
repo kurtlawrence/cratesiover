@@ -9,8 +9,7 @@ See the [rs docs](https://docs.rs/cratesiover/). [Github repo.](https://github.c
 
 ```rust
 use cratesiover::Status;
-
-let query = cratesiover::query("cratesiover", env!CARGO_PKG_VERSION)).unwrap();
+let query = cratesiover::query("cratesiover", &env!("CARGO_PKG_VERSION")).unwrap();
 
 match query {
   Status::Behind => println!("crate is behind the version on crates.io"),

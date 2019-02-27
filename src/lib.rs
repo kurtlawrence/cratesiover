@@ -9,8 +9,7 @@
 //!
 //! ```rust
 //! use cratesiover::Status;
-//!
-//! let query = cratesiover::query("cratesiover", env!CARGO_PKG_VERSION)).unwrap();
+//! let query = cratesiover::query("cratesiover", &env!("CARGO_PKG_VERSION")).unwrap();
 //!
 //! match query {
 //!   Status::Behind => println!("crate is behind the version on crates.io"),
@@ -55,15 +54,17 @@ pub fn get(crate_name: &str) -> Result<Version, Error> {
 ///
 /// # Example
 /// ```rust
-/// let query = query::("cratesiover", "0.1.0").unwrap();
-/// assert_eq!(query, Status::Behind(Version::parse("1.0.0")));
+/// use cratesiover::{ query, Status };
+/// let query = query("cratesiover", "0.1.0").unwrap();
+/// assert_eq!(query, Status::Behind);
 /// ```
-pub fn query<V: Into<Version>>(crate_name: &str, version: V) -> Result<Status, Error> {
-	let version: Version = version.into();
+pub fn query(crate_name: &str, version: &str) -> Result<Status, Error> {
+	let version = Version::parse(version).map_err(|e| Error::SemVerError(e))?;
 	Ok(cmp(&version, &get(crate_name)?))
 }
 
 fn parse(text: &str) -> Result<&str, Error> {
+	dbg!(text);
 	match text.split('\"').skip_while(|&x| x != "max_version").nth(2) {
 		// json format ("max_version":"#.#.#") hence will parse as [max_version, :, #,#,#]
 		Some(ver) => Ok(ver),
@@ -102,4 +103,29 @@ fn test_web_req() {
 			assert!(text.starts_with(r#"{"crate":{"id":"papyrus","name":"papyrus","#));
 		}
 	}
+}
+
+#[test]
+fn cmp_test() {
+	assert_eq!(
+		cmp(
+			&Version::parse("1.0.0").unwrap(),
+			&Version::parse("1.0.0").unwrap()
+		),
+		Status::Equal
+	);
+	assert_eq!(
+		cmp(
+			&Version::parse("0.1.0").unwrap(),
+			&Version::parse("1.0.0").unwrap()
+		),
+		Status::Behind
+	);
+	assert_eq!(
+		cmp(
+			&Version::parse("1.0.0").unwrap(),
+			&Version::parse("0.0.1").unwrap()
+		),
+		Status::Ahead
+	);
 }
