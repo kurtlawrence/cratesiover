@@ -1,0 +1,20 @@
+[package]
+name = "cratesiover"
+version = "1.0.0"
+authors = ["kurt <kurtlawrence92@gmail.com>"]
+description = "Get crate version from crates.io"
+license = "MIT"
+homepage = "https://github.com/kurtlawrence/cratesiover"
+repository = "https://github.com/kurtlawrence/cratesiover"
+documentation = "https://docs.rs/cratesiover/"
+readme = "README.md"
+keywords = [ "version", "crates" ]
+edition = "2018"
+
+[badges]
+travis-ci = { repository = "kurtlawrence/cratesiover" }
+
+
+[dependencies]
+reqwest = "0.9"
+semver = "0.9"
