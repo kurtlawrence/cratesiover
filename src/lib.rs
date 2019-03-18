@@ -26,7 +26,10 @@ use linefeed::Terminal;
 use reqwest;
 use semver::Version;
 use std::cmp::Ordering;
+use std::fmt;
 use std::io::{self, Write};
+
+pub use linefeed::DefaultTerminal;
 
 /// The comparitive status of the version query.
 /// Each variant contains the `crates.io` version number.
@@ -49,6 +52,16 @@ pub enum Error {
 	SemVerError(semver::SemVerError),
 	/// Failed to successfully make a request to or receive a response from `crates.io`.
 	RequestError(reqwest::Error),
+}
+
+impl fmt::Display for Error {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Error::ParseError => write!(f, "Max version parsing failed"),
+			Error::SemVerError(e) => write!(f, "SemVer Error: {}", e),
+			Error::RequestError(e) => write!(f, "Request Error: {}", e),
+		}
+	}
 }
 
 struct Writer<'a, T: Terminal>(&'a T);
@@ -107,9 +120,29 @@ pub fn output(crate_name: &str, version: &str) -> io::Result<()> {
 
 /// Query and compare the crate version number. Write to the given terminal the status.
 pub fn output_with_term<Term: Terminal>(crate_name: &str, version: &str, terminal: &Term) {
-	print!("{}", "Checking for later version...".bright_yellow());
-	io::stdout().flush().is_ok();
-	let print_line = match query(crate_name, version) {
+	println!("{}", "Checking for later version...".bright_yellow());
+	let print_line = print_line(crate_name, version);
+	let mut wtr = Writer(terminal);
+	wtr.overwrite_current_console_line(&print_line).unwrap();
+	writeln!(wtr, "",).unwrap();
+}
+
+/// Query and compare the crate version number. Write to the given writer.
+pub fn output_to_writer<W: Write>(
+	crate_name: &str,
+	version: &str,
+	writer: &mut W,
+) -> io::Result<()> {
+	writeln!(
+		writer,
+		"{}",
+		"Checking for later version...".bright_yellow()
+	)?;
+	writeln!(writer, "{}", print_line(crate_name, version))
+}
+
+fn print_line(crate_name: &str, version: &str) -> String {
+	match query(crate_name, version) {
 		Ok(status) => match status {
 			Status::Equal(ver) => format!(
 				"{}{}",
@@ -133,11 +166,8 @@ pub fn output_with_term<Term: Terminal>(crate_name: &str, version: &str, termina
 				.bright_purple()
 			),
 		},
-		Err(_) => format!("{}", "Failed to query crates.io".bright_yellow()),
-	};
-	let mut wtr = Writer(terminal);
-	wtr.overwrite_current_console_line(&print_line).unwrap();
-	writeln!(wtr, "",).unwrap();
+		Err(e) => format!("{} {}", "Failed to query crates.io:".bright_yellow(), e),
+	}
 }
 
 fn parse(text: &str) -> Result<&str, Error> {
